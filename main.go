@@ -1,9 +1,13 @@
 package main
 
 import (
+	"bufio"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -27,12 +31,9 @@ func main() {
 			return len(data)
 		},
 		func() fyne.CanvasObject {
-			return widget.NewLabel("template")
+			return widget.NewLabelWithStyle("template", fyne.TextAlignCenter, fyne.TextStyle{Bold: true, Italic: true})
 		},
 		func(i widget.ListItemID, o fyne.CanvasObject) {
-			o.(*widget.Label).Alignment = fyne.TextAlignCenter
-			o.(*widget.Label).TextStyle.Italic = true
-			o.(*widget.Label).TextStyle.Bold = true
 			o.(*widget.Label).SetText(data[i])
 		})
 
@@ -53,10 +54,23 @@ func main() {
 		deleteAll()
 		list.Refresh() // Aktualisiert die Liste, um alle Elemente zu entfernen
 	})
+	buttonSave := widget.NewButton("speichern", func() {
+		save(&w)
+
+	})
+	buttonLoad := widget.NewButton("laden", func() {
+		load(&w)
+	})
+
+	buttonAdd.SetIcon(theme.MoveDownIcon())
+	buttonDel.SetIcon(theme.DeleteIcon())
+	buttonSave.SetIcon(theme.DocumentSaveIcon())
+	buttonLoad.SetIcon(theme.FileIcon())
 
 	// container
 	vBoxOben := container.NewVBox(entry, buttonAdd)
-	borderBox := container.NewBorder(vBoxOben, buttonDel, nil, nil, list)
+	hBoxUnten := container.NewHBox(buttonDel, buttonSave, buttonLoad)
+	borderBox := container.NewBorder(vBoxOben, hBoxUnten, nil, nil, list)
 	w.SetContent(borderBox)
 	w.ShowAndRun()
 
@@ -71,5 +85,55 @@ func add(item string) {
 
 // Funktion zum Löschen aller Elemente aus der Liste
 func deleteAll() {
-	data = []string{}
+	data = nil
+}
+
+func save(w *fyne.Window) {
+	saveDialog := dialog.NewFileSave(func(writer fyne.URIWriteCloser, err error) {
+		if err != nil {
+			dialog.ShowError(err, *w)
+			return
+		}
+		if writer == nil { // Benutzer hat den Dialog abgebrochen
+			return
+		}
+		defer writer.Close()
+
+		bufWriter := bufio.NewWriter(writer)
+		for _, item := range data {
+			_, err := bufWriter.WriteString(item + "\n")
+			if err != nil {
+				dialog.ShowError(err, *w)
+				return
+			}
+		}
+		err = bufWriter.Flush()
+		if err != nil {
+			dialog.ShowError(err, *w)
+		}
+	}, *w)
+	saveDialog.SetFileName("einkaufszettel.txt")
+	saveDialog.Show()
+}
+func load(w *fyne.Window) {
+	loadDialog := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
+		if err != nil {
+			dialog.ShowError(err, *w)
+			return
+		}
+		if reader == nil { // Benutzer hat den Dialog abgebrochen
+			return
+		}
+		defer reader.Close()
+
+		scanner := bufio.NewScanner(reader)
+		for scanner.Scan() {
+			data = append(data, scanner.Text())
+		}
+		if err := scanner.Err(); err != nil {
+			dialog.ShowError(err, *w)
+		}
+	}, *w)
+	loadDialog.SetFileName("einkaufszettel.txt")
+	loadDialog.Show()
 }
