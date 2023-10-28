@@ -59,6 +59,8 @@ func main() {
 
 	})
 	buttonLoad := widget.NewButton("laden", func() {
+		deleteAll()
+		list.Refresh() // Aktualisiert die Liste, um alle Elemente zu entfernen
 		load(&w)
 	})
 
